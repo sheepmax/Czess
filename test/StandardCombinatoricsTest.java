@@ -13,7 +13,7 @@ class StandardCombinatoricsTest {
         int[] ns = {3, 10, 20};
 
         for (int t = 0; t < ns.length; t++) {
-            int n = 3;
+            int n = ns[t];
 
             System.out.print("Running getBinaryStrings (n = " + n + ")...");
 

@@ -139,12 +139,12 @@ class Solver {
                 if (variable == null) {
                     int[] solution = Arrays.stream(this.variables).mapToInt(x -> x.assignment).toArray();
 
-                    System.out.print("[");
-                    for (int i = 0; i < solution.length; i++) {
-                        System.out.print(solution[i]);
-                        System.out.print(", ");
-                    }
-                    System.out.println("]");
+//                    System.out.print("[");
+//                    for (int i = 0; i < solution.length; i++) {
+//                        System.out.print(solution[i]);
+//                        System.out.print(", ");
+//                    }
+//                    System.out.println("]");
 
                     solutions.add(solution);
                     if (findAllSolutions) {
@@ -157,14 +157,16 @@ class Solver {
                     break;
                 }
 
-                variable.assignment = variable.domain.get(0);
-
                 // Check whether constraints are still satisfied, if not backtrack
                 // TODO
 
                 // Reduce variable's domain and push onto stack
+                int assignment = variable.domain.get(0);
                 variable.domain = variable.domain.subList(1, variable.domain.size());
                 stack.push(Arrays.stream(this.variables).map(x -> x.clone()).toArray(Variable[]::new));
+
+                variable.assignment = assignment;
+
             }
         }
 

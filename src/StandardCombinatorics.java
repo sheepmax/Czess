@@ -23,9 +23,19 @@ public class StandardCombinatorics {
 
         // Use solver
         Solver solver = new Solver(variablesArray, constraintsArray);
-        List<int[]> result = solver.findAllSolutions();
+        List<int[]> results = solver.findAllSolutions();
 
-        return new ArrayList<>();
+        List<String> strings = new ArrayList<>();
+
+        for (int[] result: results) {
+            String string = "";
+            for (int i: result) {
+                string += Integer.toString(i);
+            }
+            strings.add(string);
+        }
+
+        return strings;
     }
 
     /**
