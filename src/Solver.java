@@ -1,7 +1,8 @@
 import java.util.*;
+import java.util.function.IntFunction;
 
 class Solver {
-    static class Variable {
+    static class Variable implements Cloneable{
         List<Integer> domain;
         Integer assignment;
         // you can add more attributes
@@ -12,6 +13,15 @@ class Solver {
          */
         public Variable(List<Integer> domain) {
             this.domain = domain; this.assignment = null;
+        }
+
+        private Variable(List<Integer> domain, Integer assignment) {
+            this.domain = domain; this.assignment = assignment;
+        }
+
+        @Override
+        protected Object clone() {
+            return new Variable(new ArrayList<>(this.domain), this.assignment);
         }
     }
 
@@ -99,12 +109,20 @@ class Solver {
      */
     void search(boolean findAllSolutions /* you can add more params */) {
         Stack<Variable[]> stack = new Stack<>();
+        stack.push(this.variables);
 
         while (!stack.empty()){
-            // Backtrack
+
+            Variable[] previousState = stack.pop();
+
+            for (int i = 0; i < this.variables.length; i++) {
+                Variable v = this.variables[i];
+                Variable prev = previousState[i];
+                v.assignment = prev.assignment; v.domain = prev.domain;
+            }
 
             while(true) {
-                // Some sort of inference
+                // TODO: Some sort of inference
                 // Now we've reached a fixed point
 
                 // Assign a variable
@@ -117,24 +135,36 @@ class Solver {
                 }
 
                 // This is a solution????
+                // // If all variables are assigned, push solution
                 if (variable == null) {
-                    solutions.add(Arrays.stream(this.variables).map(x -> x.assignment).toArray());
+                    int[] solution = Arrays.stream(this.variables).mapToInt(x -> x.assignment).toArray();
+
+                    System.out.print("[");
+                    for (int i = 0; i < solution.length; i++) {
+                        System.out.print(solution[i]);
+                        System.out.print(", ");
+                    }
+                    System.out.println("]");
+
+                    solutions.add(solution);
+                    if (findAllSolutions) {
+                        break;
+                    }
+                    return;
                 }
 
                 if (variable.domain.size() == 0) {
                     break;
                 }
+
                 variable.assignment = variable.domain.get(0);
-                variable.domain.remove(0);
-            }
 
                 // Check whether constraints are still satisfied, if not backtrack
-
+                // TODO
 
                 // Reduce variable's domain and push onto stack
-
-                // // If all variables are assigned, push solution
-                // // If we need to find all solutions, backtrack
+                variable.domain = variable.domain.subList(1, variable.domain.size());
+                stack.push(Arrays.stream(this.variables).map(x -> x.clone()).toArray(Variable[]::new));
             }
         }
 

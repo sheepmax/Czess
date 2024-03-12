@@ -25,7 +25,6 @@ public class StandardCombinatorics {
         Solver solver = new Solver(variablesArray, constraintsArray);
         List<int[]> result = solver.findAllSolutions();
 
-        // TODO: use result to construct answer
         return new ArrayList<>();
     }
 
