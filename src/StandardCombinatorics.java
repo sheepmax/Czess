@@ -131,7 +131,7 @@ public class StandardCombinatorics {
         // TODO: add your variables
 
         ArrayList<Integer> domain = new ArrayList<Integer>();
-        domain.add(0);
+        domain.add(-1);
         for(int i = 1; i <= n; i++){
             domain.add(i);
         }
@@ -140,7 +140,7 @@ public class StandardCombinatorics {
         }
         //Constraint: Allow for repetition of 0s in front.
 
-        constraints.add(new Solver.allowRepetitionOfZeros(variables));
+        constraints.add(new Solver.allowRepetitionOfNull(variables));
 
 
         // TODO: add your constraints
@@ -155,15 +155,7 @@ public class StandardCombinatorics {
         Solver solver = new Solver(variablesArray, constraintsArray);
         List<int[]> result = solver.findAllSolutions();
 
-        for (int i = 0; i < result.size(); i++) {
-            for (int j = 0; j < result.get(i).length; j++) {
-                System.out.print(result.get(i)[j]);
-                System.out.print(", ");
-           }
-            System.out.println("]");
-        }
 
-        // TODO: use result to construct answer
         return result;
     }
 
@@ -176,8 +168,18 @@ public class StandardCombinatorics {
         List<Solver.Constraint> constraints = new ArrayList<>();
 
         // TODO: add your variables
+        ArrayList<Integer> domain = new ArrayList<Integer>();
+        for(int i = 1; i <= n; i++){
+            domain.add(i);
+        }
+        for(int i = 0; i < n; i++){
+            variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
+        }
+
+
 
         // TODO: add your constraints
+        constraints.add(new Solver.NotEqualConstraint(variables));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
@@ -190,6 +192,6 @@ public class StandardCombinatorics {
         List<int[]> result = solver.findAllSolutions();
 
         // TODO: use result to construct answer
-        return new ArrayList<>();
+        return result;
     }
 }

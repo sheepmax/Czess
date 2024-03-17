@@ -102,9 +102,9 @@ class Solver {
         abstract Set<Integer> infer(int indexOfTheAssignment);
     }
 
-    static class allowRepetitionOfZeros extends Constraint{
+    static class allowRepetitionOfNull extends Constraint{
 
-        public allowRepetitionOfZeros(List<Variable> variables){
+        public allowRepetitionOfNull(List<Variable> variables){
             super(variables);
 
         }
@@ -112,9 +112,9 @@ class Solver {
         @Override
         boolean isFeasible(int indexOfTheAssignment, int assignment) {
 
-            if(assignment == 0){
+            if(assignment == -1){
                 for(int i = 0; i< indexOfTheAssignment; i++){
-                    if(variables.get(i).assignment != null && variables.get(i).assignment != 0){
+                    if(variables.get(i).assignment != null && variables.get(i).assignment != -1){
                         return false;
                     }
                 }
@@ -142,12 +142,12 @@ class Solver {
                 if(variables.get(i).assignment == null){
                     var index = variables.get(i).domain.indexOf(value);
                     int length = variables.get(i).domain.size();
-                    if(value == 0 && i < indexOfTheAssignment) {
+                    if(value == -1 && i < indexOfTheAssignment) {
                         variables.get(i).domain = new ArrayList<>();
-                        variables.get(i).assignment = 0;
+                        variables.get(i).assignment = -1;
                         continue;
                     }
-                    if(value == 0){
+                    if(value == -1){
                         continue;
                     }
                     //Remove all smaller or all bigger values.
@@ -365,7 +365,8 @@ class Solver {
                 // This is a solution????
                 // // If all variables are assigned, push solution
                 if (variable == null) {
-                    int[] solution = Arrays.stream(this.variables).mapToInt(x -> x.assignment).toArray();
+                    // x == -1 means that it is null, empty or whatever.
+                    int[] solution = Arrays.stream(this.variables).mapToInt(x -> x.assignment).filter(x -> x!=-1).toArray();
 
 //                    System.out.print("[");
 //                    for (int i = 0; i < solution.length; i++) {
