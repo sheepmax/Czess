@@ -9,8 +9,12 @@ public class StandardCombinatorics {
         List<Solver.Variable> variables = new ArrayList<>();
         List<Solver.Constraint> constraints = new ArrayList<>();
 
+        ArrayList<Integer> zeroOneList;
         for (int i = 0; i < n; i++) {
-            variables.add(new Solver.Variable(List.of(0, 1)));
+            zeroOneList = new ArrayList<>();
+            zeroOneList.add(0);
+            zeroOneList.add(1);
+            variables.add(new Solver.Variable(zeroOneList));
         }
 
         // There are no constraints
@@ -46,9 +50,16 @@ public class StandardCombinatorics {
         List<Solver.Variable> variables = new ArrayList<>();
         List<Solver.Constraint> constraints = new ArrayList<>();
 
-        // TODO: add variables
+        ArrayList<Integer> domain = new ArrayList<Integer>();
+        for(int i = 1; i <= n; i++){
+            domain.add(i);
+        }
+        for(int i = 0; i < k; i++){
+            variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
+        }
 
         // TODO: add your constraints
+        constraints.add(new Solver.AllOtherAssignmentsHaveToBeBiggerOrSmallerToAvoidRepetition(variables));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
@@ -61,7 +72,17 @@ public class StandardCombinatorics {
         List<int[]> result = solver.findAllSolutions();
 
         // TODO: use result to construct answer
-        return new ArrayList<>();
+//        System.out.print("[");
+//        for (int i = 161670; i < result.size(); i++) {
+//            System.out.print("[");
+//            for (int j = 0; j < result.get(i).length; j++) {
+//                System.out.print(result.get(i)[j]);
+//                System.out.print(", ");
+//           }
+//            System.out.println("]");
+//        }
+
+        return result;
     }
 
     /**
@@ -73,8 +94,16 @@ public class StandardCombinatorics {
         List<Solver.Constraint> constraints = new ArrayList<>();
 
         // TODO: add your variables
+        ArrayList<Integer> domain = new ArrayList<Integer>();
+        for(int i = 1; i <= n; i++){
+            domain.add(i);
+        }
+        for(int i = 0; i < k; i++){
+            variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
+        }
 
         // TODO: add your constraints
+        constraints.add(new Solver.AllOtherAssignmentsHaveToBeEqualOrBigger(variables));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
@@ -87,8 +116,9 @@ public class StandardCombinatorics {
         List<int[]> result = solver.findAllSolutions();
 
         // TODO: use result to construct answer
-        return new ArrayList<>();
+        return result;
     }
+
 
     /**
      * Returns a list of all subsets in the set {1,...,n}
@@ -100,6 +130,19 @@ public class StandardCombinatorics {
 
         // TODO: add your variables
 
+        ArrayList<Integer> domain = new ArrayList<Integer>();
+        domain.add(0);
+        for(int i = 1; i <= n; i++){
+            domain.add(i);
+        }
+        for(int i = 0; i < n; i++){
+            variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
+        }
+        //Constraint: Allow for repetition of 0s in front.
+
+        constraints.add(new Solver.allowRepetitionOfZeros(variables));
+
+
         // TODO: add your constraints
 
         // Convert to arrays
@@ -112,8 +155,16 @@ public class StandardCombinatorics {
         Solver solver = new Solver(variablesArray, constraintsArray);
         List<int[]> result = solver.findAllSolutions();
 
+        for (int i = 0; i < result.size(); i++) {
+            for (int j = 0; j < result.get(i).length; j++) {
+                System.out.print(result.get(i)[j]);
+                System.out.print(", ");
+           }
+            System.out.println("]");
+        }
+
         // TODO: use result to construct answer
-        return new ArrayList<>();
+        return result;
     }
 
     /**

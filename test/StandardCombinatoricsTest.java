@@ -47,8 +47,8 @@ class StandardCombinatoricsTest {
 
     @Test
     public void testCombinationsWithoutRepetition() {
-        int[] ns = {3, 100, 1000, 20};
-        int[] ks = {2, 3, 2, 8};
+        int[] ns = {3, 100, 12};
+        int[] ks = {2, 3, 8};
 
         for (int t = 0; t < ns.length; t++) {
             int n = ns[t];

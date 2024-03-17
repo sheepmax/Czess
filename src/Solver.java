@@ -11,11 +11,11 @@ class Solver {
          * Constructs a new variable.
          * @param domain A list of values that the variable can take
          */
-        public Variable(List<Integer> domain) {
+        public Variable(ArrayList<Integer> domain) {
             this.domain = domain; this.assignment = null;
         }
 
-        private Variable(List<Integer> domain, Integer assignment) {
+        private Variable(ArrayList<Integer> domain, Integer assignment) {
             this.domain = domain; this.assignment = assignment;
         }
 
@@ -25,13 +25,43 @@ class Solver {
         }
     }
 
-    static abstract class Constraint {
-        /**
-         * Tries to reduce the domain of the variables associated to this constraint, using inference
-         */
-        abstract boolean isFeasible();
-        abstract void infer(/* you can add params */);
+    public static class NotEqualConstraint extends Constraint {
+        public NotEqualConstraint(List<Variable> variables) {
+            super(variables);
+        }
+
+        @Override
+        boolean isFeasible(int indexOfTheAssignment, int assignment) {
+            for(int i = 0; i < variables.size(); i++){
+                if(i != indexOfTheAssignment && variables.get(i).assignment != null &&
+                        variables.get(i).assignment == assignment){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Returns set of variables that were assigned.
+        @Override
+        Set<Integer> infer(int indexOfTheAssignment) {
+            int value = variables.get(indexOfTheAssignment).assignment;
+            Set<Integer> newlyAssignedValues = new HashSet<>();
+
+            // Remove the current value from the domain of other variables which are not yet assigned.
+            for (int i = 0; i < variables.size(); i++) {
+                if(variables.get(i).assignment == null && variables.get(i).domain.contains(value)){
+                    var index = variables.get(i).domain.indexOf(value);
+                    variables.get(i).domain.remove(index);
+                    if(variables.get(i).domain.size() == 1){
+                        variables.get(i).assignment = variables.get(i).domain.get(0);
+                        newlyAssignedValues.add(i);
+                    }
+                }
+            }
+            return newlyAssignedValues;
+        }
     }
+
 
     // Example implementation of the Constraint interface.
     // It enforces that for given variable X, it holds that 5 < X < 10.
@@ -56,6 +86,199 @@ class Solver {
             this.var.domain = newDomain;
         }
     }
+
+    static abstract class Constraint {
+        /**
+         * Tries to reduce the domain of the variables associated to this constraint, using inference
+         */
+
+        protected List<Variable> variables;
+
+        public Constraint(List<Variable> variables) {
+            this.variables = variables;
+        }
+
+        abstract boolean isFeasible(int indexOfTheAssignment, int assignment);
+        abstract Set<Integer> infer(int indexOfTheAssignment);
+    }
+
+    static class allowRepetitionOfZeros extends Constraint{
+
+        public allowRepetitionOfZeros(List<Variable> variables){
+            super(variables);
+
+        }
+
+        @Override
+        boolean isFeasible(int indexOfTheAssignment, int assignment) {
+
+            if(assignment == 0){
+                for(int i = 0; i< indexOfTheAssignment; i++){
+                    if(variables.get(i).assignment != null && variables.get(i).assignment != 0){
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            for(int i = 0; i< variables.size(); i++){
+                if(i < indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment >= assignment){
+                    return false;
+                }
+                if(i > indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment <= assignment){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        Set<Integer> infer(int indexOfTheAssignment) {
+            int value = variables.get(indexOfTheAssignment).assignment;
+            Set<Integer> newlyAssignedValues = new HashSet<>();
+
+            // Remove the current value from the domain of other variables which are not yet assigned.
+            for (int i = 0; i < variables.size(); i++) {
+                if(variables.get(i).assignment == null){
+                    var index = variables.get(i).domain.indexOf(value);
+                    int length = variables.get(i).domain.size();
+                    if(value == 0 && i < indexOfTheAssignment) {
+                        variables.get(i).domain = new ArrayList<>();
+                        variables.get(i).assignment = 0;
+                        continue;
+                    }
+                    if(value == 0){
+                        continue;
+                    }
+                    //Remove all smaller or all bigger values.
+                    if(i < indexOfTheAssignment) {
+                        variables.get(i).domain = variables.get(i).domain.subList(0, index);
+                    } else if (i > indexOfTheAssignment){
+                        variables.get(i).domain = variables.get(i).domain.subList(index+1, length);
+                    }
+                    if(variables.get(i).domain.size() == 1){
+                        if(isFeasible(i, variables.get(i).domain.get(0))){
+                            variables.get(i).assignment = variables.get(i).domain.get(0);
+                            newlyAssignedValues.add(i);
+                        } else {
+                            variables.get(i).domain = new ArrayList<>();
+                            // Conflict detected, but idk how to write code efficiently. Maybe try catch block?
+                        }
+                    }
+                }
+            }
+            return newlyAssignedValues;
+
+        }
+    }
+    static class AllOtherAssignmentsHaveToBeBiggerOrSmallerToAvoidRepetition extends Constraint{
+
+        public AllOtherAssignmentsHaveToBeBiggerOrSmallerToAvoidRepetition(List<Variable> variables){
+            super(variables);
+
+        }
+
+        @Override
+        boolean isFeasible(int indexOfTheAssignment, int assignment) {
+
+            for(int i = 0; i< variables.size(); i++){
+                if(i < indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment >= assignment){
+                    return false;
+                }
+                if(i > indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment <= assignment){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        Set<Integer> infer(int indexOfTheAssignment) {
+            int value = variables.get(indexOfTheAssignment).assignment;
+            Set<Integer> newlyAssignedValues = new HashSet<>();
+
+            // Remove the current value from the domain of other variables which are not yet assigned.
+            for (int i = 0; i < variables.size(); i++) {
+                if(variables.get(i).assignment == null){
+                    var index = variables.get(i).domain.indexOf(value);
+                    int length = variables.get(i).domain.size();
+
+                    //Remove all smaller or all bigger values.
+                    if(i < indexOfTheAssignment) {
+                        variables.get(i).domain = variables.get(i).domain.subList(0, index);
+                    } else if (i > indexOfTheAssignment){
+                        variables.get(i).domain = variables.get(i).domain.subList(index+1, length);
+                    }
+                    if(variables.get(i).domain.size() == 1){
+                        if(isFeasible(i, variables.get(i).domain.get(0))){
+                            variables.get(i).assignment = variables.get(i).domain.get(0);
+                            newlyAssignedValues.add(i);
+                        } else {
+                            variables.get(i).domain = new ArrayList<>();
+                            // Conflict detected, but idk how to write code efficiently. Maybe try catch block?
+                        }
+                    }
+                }
+            }
+            return newlyAssignedValues;
+
+        }
+    }
+
+    static class AllOtherAssignmentsHaveToBeEqualOrBigger extends Constraint{
+
+        public AllOtherAssignmentsHaveToBeEqualOrBigger(List<Variable> variables){
+            super(variables);
+        }
+
+        @Override
+        boolean isFeasible(int indexOfTheAssignment, int assignment) {
+
+            for(int i = 0; i< variables.size(); i++){
+                if(i < indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment > assignment){
+                    return false;
+                }
+                if(i > indexOfTheAssignment && variables.get(i).assignment != null && variables.get(i).assignment < assignment){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        Set<Integer> infer(int indexOfTheAssignment) {
+            int value = variables.get(indexOfTheAssignment).assignment;
+            Set<Integer> newlyAssignedValues = new HashSet<>();
+
+            // Remove the current value from the domain of other variables which are not yet assigned.
+            for (int i = 0; i < variables.size(); i++) {
+                if(variables.get(i).assignment == null){
+                    var index = variables.get(i).domain.indexOf(value);
+                    int length = variables.get(i).domain.size();
+
+                    //Remove all smaller or all bigger values.
+                    if(i < indexOfTheAssignment) {
+                        variables.get(i).domain = variables.get(i).domain.subList(0, index+1);
+                    } else if (i > indexOfTheAssignment){
+                        variables.get(i).domain = variables.get(i).domain.subList(index, length);
+                    }
+                    if(variables.get(i).domain.size() == 1){
+                        if(isFeasible(i, variables.get(i).domain.get(0))){
+                            variables.get(i).assignment = variables.get(i).domain.get(0);
+                            newlyAssignedValues.add(i);
+                        } else {
+                            variables.get(i).domain = new ArrayList<>();
+                            // Conflict detected, but idk how to write code efficiently. Maybe try catch block?
+                        }
+
+                    }
+                }
+            }
+            return newlyAssignedValues;
+
+        }
+    }
+
 
     Variable[] variables;
     Constraint[] constraints;
@@ -110,16 +333,18 @@ class Solver {
     void search(boolean findAllSolutions /* you can add more params */) {
         Stack<Variable[]> stack = new Stack<>();
         stack.push(this.variables);
-
+        int stackCount = 0;
         while (!stack.empty()){
 
             Variable[] previousState = stack.pop();
-
+            stackCount++;
+            // Constraint class works on this.variables. So for checking for this
             for (int i = 0; i < this.variables.length; i++) {
                 Variable v = this.variables[i];
                 Variable prev = previousState[i];
                 v.assignment = prev.assignment; v.domain = prev.domain;
             }
+
 
             while(true) {
                 // TODO: Some sort of inference
@@ -127,11 +352,14 @@ class Solver {
 
                 // Assign a variable
                 Variable variable = null;
-                for (Variable var: this.variables) {
-                    if (var.assignment != null) {
+                int indexOfVariable = -1;
+                for (int i = 0; i< variables.length; i++) {
+                    if (variables[i].assignment != null) {
                         continue;
                     }
-                    variable = var;
+                    variable = variables[i];
+                    indexOfVariable = i;
+                    break;
                 }
 
                 // This is a solution????
@@ -153,25 +381,49 @@ class Solver {
                     return;
                 }
 
+
                 if (variable.domain.size() == 0) {
                     break;
                 }
 
-                // Check whether constraints are still satisfied, if not backtrack
-                // TODO
+                int assignment = variable.domain.get(0);
+                variable.domain.remove(0);
+                //Check if constraints are satisfied
+
+                boolean allConstraintsAreFeasible = true;
+                for(Constraint c : constraints){
+                    if(!c.isFeasible(indexOfVariable, assignment)){
+                        allConstraintsAreFeasible = false;
+                        break;
+                    }
+                }
+
+                if(!allConstraintsAreFeasible){
+                    break;
+                }
 
                 // Reduce variable's domain and push onto stack
-                int assignment = variable.domain.get(0);
-                variable.domain = variable.domain.subList(1, variable.domain.size());
+
                 stack.push(Arrays.stream(this.variables).map(x -> x.clone()).toArray(Variable[]::new));
 
-                variable.assignment = assignment;
+                this.variables[indexOfVariable].assignment = assignment;
+                //infer on constraints.
+                Set<Integer> newlyAssignedVariables = new HashSet<>();
+                int indexToEvaluate = indexOfVariable;
+                newlyAssignedVariables.add(indexToEvaluate);
+                while(!newlyAssignedVariables.isEmpty()){
+                    newlyAssignedVariables.remove(indexToEvaluate);
+                    for(Constraint c : constraints){
+                        Set<Integer> cAssignedThose = c.infer(indexToEvaluate);
+                        newlyAssignedVariables.addAll(cAssignedThose);
+                    }
+                    if(!newlyAssignedVariables.isEmpty()){
+                        indexToEvaluate = newlyAssignedVariables.iterator().next();
+                    }
+                }
+
 
             }
         }
-
-
-
-        // TODO: implement search using search and inference
     }
 }
