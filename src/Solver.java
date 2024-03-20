@@ -6,6 +6,7 @@ class Solver {
         List<Integer> domain;
         BitSet bitDomain;
         Integer assignment;
+        int assignmentOffset;
         // you can add more attributes
 
         /**
@@ -14,17 +15,24 @@ class Solver {
          */
         public Variable(ArrayList<Integer> domain) {
             this.domain = domain; this.assignment = null;
+            this.assignmentOffset = -1;
             this.bitDomain = new BitSet(domain.size());
             this.bitDomain.set(0, domain.size(), true);
         }
 
-        private Variable(List<Integer> domain, Integer assignment, BitSet bitDomain) {
-            this.domain = domain; this.assignment = assignment; this.bitDomain = bitDomain;
+        private Variable(List<Integer> domain, Integer assignment, int assignmentOffset, BitSet bitDomain) {
+            this.domain = domain; this.assignment = assignment;
+            this.bitDomain = bitDomain; this.assignmentOffset = assignmentOffset;
+        }
+
+        public void setAssignment(int index) {
+            this.assignmentOffset = index;
+            this.assignment = this.domain.get(index);
         }
 
         @Override
         protected Object clone() {
-            return new Variable(this.domain, this.assignment, (BitSet)this.bitDomain.clone());
+            return new Variable(this.domain, this.assignment, this.assignmentOffset, (BitSet)this.bitDomain.clone());
         }
     }
 
@@ -222,72 +230,72 @@ class Solver {
                     return -1;
                 }
 
-                int newMin = (var.assignment != null) ? var.assignment : var.domain.get(0);
+                int newMin = (var.assignment != null) ? var.assignment : var.domain.get(var.bitDomain.nextSetBit(0));
 
-                if (var.domain.get(0) > minimum) {
+                if (newMin > minimum) {
                     minimum = this.withEquality ? newMin - 1 : newMin;
                     continue;
                 }
 
-                int i = 0;
-                while (i < var.domain.size() && var.domain.get(i) <= minimum) { i++; }
+                int i = var.bitDomain.nextSetBit(0);
+                while (i >= 0 && var.domain.get(i) <= minimum) { i = var.bitDomain.nextSetBit(i+1); }
 
-                if (i == var.domain.size()) {
+                if (i == -1) {
                     return -1;
                 }
 
-                var.domain = var.domain.subList(i, var.domain.size());
+                var.bitDomain.clear(0, i);
 
-                newMin = var.domain.get(0);
+                newMin = var.domain.get(var.bitDomain.nextSetBit(0));
                 minimum = this.withEquality ? newMin - 1 : newMin;
 
                 hasInferred = 1;
             }
-
-
-
             return hasInferred;
         }
     }
 
-    static class NotEqual extends Constraint {
+    static class BinaryNotEqual extends Constraint {
         /**
          * Constraint of the type x0 =/= x1 =/= x2 =/= ...
          */
 
-        BitSet hasBeenInferred;
-        int numInferred;
-
-        public NotEqual (List<Variable> variables) {
-            super(variables);
-            this.hasBeenInferred = new BitSet(variables.size());
-            this.numInferred = 0;
+        public BinaryNotEqual (Variable var1, Variable var2) {
+            super(List.of(var1, var2));
         }
 
         @Override
         int infer() {
-           int hasInferred = 0;
+           Variable var1, var2;
+           var1 = this.variables.get(0);
+           var2 = this.variables.get(1);
 
-           if (this.numInferred == this.hasBeenInferred.size()) { return 0; }
-
-           for (Variable var: this.variables) {
-
-
-               if (var.assignment == null) { continue; }
-
-               for (Variable other: this.variables) {
-                   if (var == other) { continue; }
-
-                   int index = other.domain.indexOf(var.assignment);
-
-                   if (index == -1) { continue; }
-
-                   other.domain.remove(index);
-                   hasInferred = 1;
-               }
+           if ((var1.assignment == null && var2.assignment == null) ||
+                   (var1.assignment != null && var2.assignment != null)) {
+               return 0;
            }
 
-           return hasInferred;
+           if (var1.assignment != null) {
+               var2.bitDomain.clear(var1.assignmentOffset);
+           } else {
+               var1.bitDomain.clear(var2.assignmentOffset);
+           }
+
+//           for (int i = 0; i < this.variables.size(); i++) {
+//               Variable var = this.variables.get(i);
+//
+//               if (var.assignment == null) { continue; }
+//
+//               for (Variable other: this.variables) {
+//                   if (var == other) { continue; }
+//                   if (other.bitDomain.get(var.assignmentOffset)) {
+//                       other.bitDomain.clear(var.assignmentOffset);
+//                       hasInferred = 1;
+//                   }
+//               }
+//           }
+
+           return 0;
         }
     }
 
@@ -451,7 +459,7 @@ class Solver {
                 Variable v = this.variables[i];
                 Variable prev = previousState[i];
                 v.assignment = prev.assignment; v.domain = prev.domain;
-                v.bitDomain = prev.bitDomain;
+                v.bitDomain = prev.bitDomain; v.assignmentOffset = prev.assignmentOffset;
             }
 
             while(true) {
@@ -474,7 +482,7 @@ class Solver {
 
                     if (cardinality == 1 && var.assignment == null) {
                         int domainOffset = var.bitDomain.nextSetBit(0);
-                        var.assignment = var.domain.get(domainOffset);
+                        var.setAssignment(domainOffset);
                     } else if (cardinality == 0 && var.assignment == null) {
                         isFeasible = false;
                         break;
@@ -519,7 +527,6 @@ class Solver {
                 }
 
                 int domainOffset = variable.bitDomain.nextSetBit(0);
-                int assignment = variable.domain.get(domainOffset);
                 variable.bitDomain.clear(domainOffset);
 
                 // Reduce variable's domain and push onto stack
@@ -531,7 +538,7 @@ class Solver {
                 }
                 stack.push(newVariables);
 
-                variable.assignment = assignment;
+                variable.setAssignment(domainOffset);
             }
         }
     }

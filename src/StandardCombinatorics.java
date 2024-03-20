@@ -157,8 +157,14 @@ public class StandardCombinatorics {
             variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
         }
 
-        constraints.add(new Solver.NotEqual(variables));
-
+        for (Solver.Variable var1: variables) {
+            for (Solver.Variable var2: variables) {
+                if (var1 == var2) { continue; }
+                constraints.add(new Solver.BinaryNotEqual(var1, var2));
+            }
+        }
+//        constraints.add(new Solver.NotEqual(variables));
+//
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
         variablesArray = variables.toArray(variablesArray);
