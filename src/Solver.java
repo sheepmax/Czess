@@ -4,6 +4,7 @@ import java.util.function.IntFunction;
 class Solver {
     static class Variable implements Cloneable{
         List<Integer> domain;
+        BitSet bitDomain;
         Integer assignment;
         // you can add more attributes
 
@@ -13,15 +14,17 @@ class Solver {
          */
         public Variable(ArrayList<Integer> domain) {
             this.domain = domain; this.assignment = null;
+            this.bitDomain = new BitSet(domain.size());
+            this.bitDomain.set(0, domain.size(), true);
         }
 
-        private Variable(ArrayList<Integer> domain, Integer assignment) {
-            this.domain = domain; this.assignment = assignment;
+        private Variable(List<Integer> domain, Integer assignment, BitSet bitDomain) {
+            this.domain = domain; this.assignment = assignment; this.bitDomain = bitDomain;
         }
 
         @Override
         protected Object clone() {
-            return new Variable(new ArrayList<>(this.domain), this.assignment);
+            return new Variable(this.domain, this.assignment, (BitSet)this.bitDomain.clone());
         }
     }
 
@@ -215,8 +218,7 @@ class Solver {
             int hasInferred = 0;
 
             for (Variable var: this.variables) {
-                if ((var.assignment != null && var.assignment < minimum)
-                        || (var.domain.get(var.domain.size() - 1)) < minimum) {
+                if (var.assignment != null && var.assignment < minimum) {
                     return -1;
                 }
 
@@ -253,15 +255,24 @@ class Solver {
          * Constraint of the type x0 =/= x1 =/= x2 =/= ...
          */
 
+        BitSet hasBeenInferred;
+        int numInferred;
+
         public NotEqual (List<Variable> variables) {
             super(variables);
+            this.hasBeenInferred = new BitSet(variables.size());
+            this.numInferred = 0;
         }
 
         @Override
         int infer() {
            int hasInferred = 0;
 
+           if (this.numInferred == this.hasBeenInferred.size()) { return 0; }
+
            for (Variable var: this.variables) {
+
+
                if (var.assignment == null) { continue; }
 
                for (Variable other: this.variables) {
@@ -440,8 +451,8 @@ class Solver {
                 Variable v = this.variables[i];
                 Variable prev = previousState[i];
                 v.assignment = prev.assignment; v.domain = prev.domain;
+                v.bitDomain = prev.bitDomain;
             }
-
 
             while(true) {
                 //infer on constraints .
@@ -459,9 +470,12 @@ class Solver {
                 if (!isFeasible) { break; }
 
                 for (Variable var: this.variables) {
-                    if (var.domain.size() == 1 && var.assignment == null) {
-                        var.assignment = var.domain.get(0);
-                    } else if (var.domain.size() == 0 && var.assignment == null) {
+                    int cardinality = var.bitDomain.cardinality();
+
+                    if (cardinality == 1 && var.assignment == null) {
+                        int domainOffset = var.bitDomain.nextSetBit(0);
+                        var.assignment = var.domain.get(domainOffset);
+                    } else if (cardinality == 0 && var.assignment == null) {
                         isFeasible = false;
                         break;
                     }
@@ -500,16 +514,22 @@ class Solver {
                 }
 
 
-                if (variable.domain.size() == 0) {
+                if (variable.bitDomain.isEmpty()) {
                     break;
                 }
 
-                int assignment = variable.domain.get(0);
-                variable.domain.remove(0);
+                int domainOffset = variable.bitDomain.nextSetBit(0);
+                int assignment = variable.domain.get(domainOffset);
+                variable.bitDomain.clear(domainOffset);
 
                 // Reduce variable's domain and push onto stack
 
-                stack.push(Arrays.stream(this.variables).map(x -> x.clone()).toArray(Variable[]::new));
+                Variable[] newVariables = new Variable[this.variables.length];
+
+                for (int i = 0; i < this.variables.length; i++) {
+                    newVariables[i] = (Variable) this.variables[i].clone();
+                }
+                stack.push(newVariables);
 
                 variable.assignment = assignment;
             }
