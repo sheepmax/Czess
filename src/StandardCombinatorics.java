@@ -59,7 +59,7 @@ public class StandardCombinatorics {
         }
 
         // TODO: add your constraints
-        constraints.add(new Solver.AllOtherAssignmentsHaveToBeBiggerOrSmallerToAvoidRepetition(variables));
+        constraints.add(new Solver.TotalOrdering(variables, false));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
@@ -88,6 +88,14 @@ public class StandardCombinatorics {
     /**
      * Returns a list of all combinations of k elements from the set {1,...,n} with repetitions
      */
+
+    /**
+     * (x0 <= x1) <= x2 <= x3 ...
+     * (x0, x1) (1, -1)  1 => x0 - x1 < 1
+     * x0 {0, 1} 0 - x1 < 1 x1 {0, 1}
+     * x0 {1}  - x1 < 0     x1 {1
+     */
+
     public static List<int[]> getCombinationsWithRepetition(int n, int k) {
         // Initialize lists for variables and constraints
         List<Solver.Variable> variables = new ArrayList<>();
@@ -103,7 +111,7 @@ public class StandardCombinatorics {
         }
 
         // TODO: add your constraints
-        constraints.add(new Solver.AllOtherAssignmentsHaveToBeEqualOrBigger(variables));
+        constraints.add(new Solver.TotalOrdering(variables, true));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
@@ -124,39 +132,12 @@ public class StandardCombinatorics {
      * Returns a list of all subsets in the set {1,...,n}
      */
     public static List<int[]> getSubsets(int n) {
-        // Initialize lists for variables and constraints
-        List<Solver.Variable> variables = new ArrayList<>();
-        List<Solver.Constraint> constraints = new ArrayList<>();
-
-        // TODO: add your variables
-
-        ArrayList<Integer> domain = new ArrayList<Integer>();
-        domain.add(-1);
-        for(int i = 1; i <= n; i++){
-            domain.add(i);
+        List<int[]> total = new ArrayList<>();
+        for (int i = 0; i <= n; i++) {
+            List<int[]> partial = getCombinationsWithoutRepetition(n, i);
+            total.addAll(partial);
         }
-        for(int i = 0; i < n; i++){
-            variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
-        }
-        //Constraint: Allow for repetition of 0s in front.
-
-        constraints.add(new Solver.allowRepetitionOfNull(variables));
-
-
-        // TODO: add your constraints
-
-        // Convert to arrays
-        Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
-        variablesArray = variables.toArray(variablesArray);
-        Solver.Constraint[] constraintsArray = new Solver.Constraint[constraints.size()];
-        constraintsArray = constraints.toArray(constraintsArray);
-
-        // Use solver
-        Solver solver = new Solver(variablesArray, constraintsArray);
-        List<int[]> result = solver.findAllSolutions();
-
-
-        return result;
+        return total;
     }
 
     /**
@@ -176,10 +157,7 @@ public class StandardCombinatorics {
             variables.add(new Solver.Variable((ArrayList<Integer>) domain.clone()));
         }
 
-
-
-        // TODO: add your constraints
-        constraints.add(new Solver.NotEqualConstraint(variables));
+        constraints.add(new Solver.NotEqual(variables));
 
         // Convert to arrays
         Solver.Variable[] variablesArray = new Solver.Variable[variables.size()];
