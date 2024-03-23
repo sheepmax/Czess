@@ -3,39 +3,42 @@ import java.util.function.IntFunction;
 
 class Solver {
     static class Variable implements Cloneable{
-        List<Integer> domain;
+        static List<Integer> domain;
         BitSet bitDomain;
-        Integer assignment;
-        int assignmentOffset;
+        boolean assigned;
         // you can add more attributes
 
         /**
          * Constructs a new variable.
          * @param domain A list of values that the variable can take
          */
-        public Variable(ArrayList<Integer> domain) {
-            this.domain = domain; this.assignment = null;
-            this.assignmentOffset = -1;
-            this.bitDomain = new BitSet(domain.size());
-            this.bitDomain.set(0, domain.size(), true);
+        public static void setDomain(List<Integer> domain) {
+            Variable.domain = domain;
         }
 
-        private Variable(List<Integer> domain, Integer assignment, int assignmentOffset, BitSet bitDomain) {
-            this.domain = domain; this.assignment = assignment;
-            this.bitDomain = bitDomain; this.assignmentOffset = assignmentOffset;
+        public Variable() {
+            this.bitDomain = new BitSet(Variable.domain.size());
+            this.bitDomain.set(0, Variable.domain.size());
+            this.assigned = false;
         }
 
+        private Variable(BitSet bitDomain, boolean assigned) {
+            this.bitDomain = bitDomain; this.assigned = assigned;
+        }
 
-
+        public int assignmentValue() {
+            return Variable.domain.get(this.bitDomain.nextSetBit(0));
+        }
 
         public void setAssignment(int index) {
-            this.assignmentOffset = index;
-            this.assignment = this.domain.get(index);
+            this.bitDomain = new BitSet(Variable.domain.size());
+            this.bitDomain.set(index);
+            this.assigned = true;
         }
 
         @Override
         protected Object clone() {
-            return new Variable(this.domain, this.assignment, this.assignmentOffset, this.bitDomain);
+            return new Variable(this.bitDomain, this.assigned);
         }
     }
 
@@ -69,11 +72,16 @@ class Solver {
             int hasInferred = 0;
 
             for (Variable var: this.variables) {
-                if (var.assignment != null && var.assignment < minimum) {
+                if (var.assigned && var.assignmentValue() < minimum) {
                     return -1;
                 }
 
-                int newMin = (var.assignment != null) ? var.assignment : var.domain.get(var.bitDomain.nextSetBit(0));
+                if (var.bitDomain.isEmpty()) {
+                    return -1;
+                }
+
+                int newMin = (var.assigned) ? var.assignmentValue() :
+                        var.domain.get(var.bitDomain.nextSetBit(0));
 
                 if (newMin > minimum) {
                     minimum = this.withEquality ? newMin - 1 : newMin;
@@ -99,51 +107,99 @@ class Solver {
         }
     }
 
-    static class BinaryNotEqual extends Constraint {
+    static class DifferenceInequality extends Constraint {
         /**
-         * Constraint of the type x0 =/= x1 =/= x2 =/= ...
+         * Constraint of the type |x0 - x1| =\= constant
          */
 
-        public BinaryNotEqual (Variable var1, Variable var2) {
-            super(List.of(var1, var2));
+        Variable var1, var2;
+        int constant;
+
+        public DifferenceInequality (Variable var1, Variable var2, int constant) {
+            super(List.of());
+            this.var1 = var1; this.var2 = var2;
+            this.constant = constant;
         }
 
         @Override
         int infer() {
-           Variable var1, var2;
-           var1 = this.variables.get(0);
-           var2 = this.variables.get(1);
+            if (var1.assigned && var2.assigned && Math.abs(var1.assignmentValue() - var2.assignmentValue()) == constant) {
+                return -1;
+            }
+            if (var1.assigned && !var2.assigned) {
+                int toRemove = var1.assignmentValue() - constant;
+                int toRemoveIndex = toRemove;
+                var2.bitDomain = (BitSet) var2.bitDomain.clone();
 
-           if ((var1.assignment == null && var2.assignment == null) ||
-                   (var1.assignment != null && var2.assignment != null)) {
-               return 0;
-           }
+                if (toRemoveIndex > 0 && toRemoveIndex < Variable.domain.size()) {
+                    var2.bitDomain.clear(toRemoveIndex);
+                }
 
-           if (var1.assignment != null) {
-               BitSet changedDomain = (BitSet) var2.bitDomain.clone();
-               changedDomain.clear(var1.assignmentOffset);
-               var2.bitDomain = changedDomain;
-           } else {
-               BitSet changedDomain = (BitSet) var1.bitDomain.clone();
-               changedDomain.clear(var2.assignmentOffset);
-               var1.bitDomain = changedDomain;
-           }
+                toRemove = constant + var1.assignmentValue();
+                toRemoveIndex = toRemove - Variable.domain.get(0);
 
-//           for (int i = 0; i < this.variables.size(); i++) {
-//               Variable var = this.variables.get(i);
-//
-//               if (var.assignment == null) { continue; }
-//
-//               for (Variable other: this.variables) {
-//                   if (var == other) { continue; }
-//                   if (other.bitDomain.get(var.assignmentOffset)) {
-//                       other.bitDomain.clear(var.assignmentOffset);
-//                       hasInferred = 1;
-//                   }
-//               }
-//           }
+                if (toRemoveIndex < Variable.domain.size()) {
+                    var2.bitDomain.clear(toRemoveIndex);
+                }
+            }
 
-           return 0;
+            if (var2.assigned && !var1.assigned) {
+                int toRemove = var2.assignmentValue() - constant;
+                int toRemoveIndex = toRemove;
+                var1.bitDomain = (BitSet) var1.bitDomain.clone();
+
+                if (toRemoveIndex >= 0 && toRemoveIndex < Variable.domain.size()) {
+                    var1.bitDomain.clear(toRemoveIndex);
+                }
+
+                toRemove = constant + var2.assignmentValue();
+                toRemoveIndex = toRemove - Variable.domain.get(0);
+
+                if (toRemoveIndex < Variable.domain.size()) {
+                    var1.bitDomain.clear(toRemoveIndex);
+                }
+
+            }
+            return 0;
+        }
+    }
+
+    static class NotEqual extends Constraint {
+        /**
+         * Constraint of the type x0 =/= x1 =/= x2 =/= ...
+         */
+
+        public NotEqual(List<Variable> variables) {
+            super(variables);
+        }
+
+        @Override
+        int infer() {
+            BitSet toClear = new BitSet(Variable.domain.size());
+            //toClear.set(0, Variable.domain.size());
+
+            for (Variable var: this.variables) {
+                if (var.assigned) {
+                    int toClearIndex = var.bitDomain.nextSetBit(0);
+                    if (toClear.get(toClearIndex) == true) {
+                        return -1;
+                    }
+                    toClear.set(toClearIndex);
+                }
+            }
+
+            if (toClear.isEmpty()) {
+                return 0;
+            }
+
+            for (Variable var: this.variables) {
+                if (!var.assigned) {
+                    var.bitDomain = (BitSet) var.bitDomain.clone();
+                    var.bitDomain.andNot(toClear);
+                }
+            }
+
+            return 0;
         }
     }
 
@@ -203,74 +259,60 @@ class Solver {
         stack.push(this.variables);
 
         while (!stack.empty()){
-
             Variable[] previousState = stack.pop();
 
             // Constraint class works on this.variables. So for checking for this
             for (int i = 0; i < this.variables.length; i++) {
                 Variable v = this.variables[i];
                 Variable prev = previousState[i];
-                v.assignment = prev.assignment; v.domain = prev.domain;
-                v.bitDomain = prev.bitDomain; v.assignmentOffset = prev.assignmentOffset;
+                v.bitDomain = prev.bitDomain; v.assigned = prev.assigned;
             }
 
             while(true) {
                 //infer on constraints .
-                int hasInferred = 1;
                 boolean isFeasible = true;
-                while(hasInferred > 0){
-                    hasInferred = 0;
-                    for (Constraint c: this.constraints) {
-                        int result = c.infer();
-                        if (result == -1) { isFeasible = false; break; }
-                        hasInferred += result;
+
+                // Do variable selection and assignment
+                Variable chosen = null;
+                int minimumCardinality = Integer.MAX_VALUE;
+                for (Variable var: this.variables) {
+                    int cardinality = var.bitDomain.cardinality();
+
+                    if (cardinality == 1 && !var.assigned) {
+                        var.setAssignment(var.bitDomain.nextSetBit(0));
                     }
+
+
+                    else if (cardinality > 1) {
+                        if (cardinality < minimumCardinality) {
+                            minimumCardinality = cardinality;
+                            chosen = var;
+                        }
+                    }
+                }
+
+                for (Constraint c: this.constraints) {
+                    int result = c.infer();
+                    if (result == -1) { isFeasible = false; break; }
                 }
 
                 if (!isFeasible) { break; }
 
                 for (Variable var: this.variables) {
-                    int cardinality = var.bitDomain.cardinality();
-
-                    if (cardinality == 1 && var.assignment == null) {
-                        int domainOffset = var.bitDomain.nextSetBit(0);
-                        var.setAssignment(domainOffset);
-                    } else if (cardinality == 0 && var.assignment == null) {
-                        isFeasible = false;
-                        break;
+                    if (var.bitDomain.isEmpty()) {
+                        isFeasible = false; break;
                     }
                 }
 
                 if (!isFeasible) { break; }
 
-                // Make a new decision.
-                Variable variable = null;
-                int varIdx = -1;
-                for (int i = 0; i< variables.length; i++) {
-                    if (variables[i].assignment != null) {
-                        continue;
-                    }
-                    variable = variables[i];
-                    varIdx = i;
-                    break;
-                }
-
                 // This is a solution????
                 // // If all variables are assigned, push solution
-                if (variable == null) {
-                    // x == -1 means that it is null, empty or whatever.
-//                    int[] solution = Arrays.stream(this.variables).mapToInt(x -> x.assignment).toArray();
+                if (chosen == null) {
                     int[] sol = new int[this.variables.length];
                     for (int i = 0; i < sol.length; i++){
-                        sol[i] = this.variables[i].assignment;
+                        sol[i] = Variable.domain.get(this.variables[i].bitDomain.nextSetBit(0));
                     }
-
-//                    System.out.print("[");
-//                    for (int i = 0; i < solution.length; i++) {
-//                        System.out.print(solution[i]);
-//                        System.out.print(", ");
-//                    }
-//                    System.out.println("]");
 
                     solutions.add(sol);
                     if (findAllSolutions) {
@@ -279,26 +321,20 @@ class Solver {
                     return;
                 }
 
-
-                if (variable.bitDomain.isEmpty()) {
-                    break;
-                }
-
-
                 // Reduce variable's domain and push onto stack
 
                 Variable[] newVariables = new Variable[this.variables.length];
 
+                int assignmentOffset = chosen.bitDomain.nextSetBit(0);
+                chosen.bitDomain = (BitSet) chosen.bitDomain.clone();
+                chosen.bitDomain.clear(assignmentOffset);
+
                 for (int i = 0; i < this.variables.length; i++) {
                     newVariables[i] = (Variable) this.variables[i].clone();
                 }
-                newVariables[varIdx].bitDomain = (BitSet) this.variables[varIdx].bitDomain.clone();
-                int domainOffset = newVariables[varIdx].bitDomain.nextSetBit(0);
-                newVariables[varIdx].bitDomain.clear(domainOffset);
                 stack.push(newVariables);
-                variable.setAssignment(domainOffset);
 
-
+                chosen.setAssignment(assignmentOffset);
             }
         }
     }
